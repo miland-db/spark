@@ -62,6 +62,33 @@ compoundBody
 compoundStatement
     : statement
     | beginEndCompoundBlock
+    | declareHandlerStatement
+    | declareConditionStatement
+    ;
+
+handlerType
+    : CONTINUE
+    | EXIT
+    ;
+
+handlerName
+    : multipartIdentifier
+    ;
+
+conditionName
+    : multipartIdentifier
+    ;
+
+sqlstate
+    : multipartIdentifier
+    ;
+
+declareHandlerStatement
+    : DECLARE handlerType HANDLER FOR handlerName beginEndCompoundBlock
+    ;
+
+declareConditionStatement
+    : DECLARE conditionName CONDITION (FOR sqlstate)
     ;
 
 singleStatement

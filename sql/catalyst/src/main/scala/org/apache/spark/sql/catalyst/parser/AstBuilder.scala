@@ -166,6 +166,15 @@ class AstBuilder extends DataTypeAstBuilder with SQLConfHelper with Logging {
       }
     }
 
+//  override def visitDeclareConditionStatement(
+//    ctx: ErrorConditionC): ErrorCondition = {
+//
+//
+//
+//    val conditionName = ctx.conditionName().getText
+//    ErrorCondition(sqlstate, conditionName)
+//  }
+
   override def visitSingleStatement(ctx: SingleStatementContext): LogicalPlan = withOrigin(ctx) {
     visit(ctx.statement).asInstanceOf[LogicalPlan]
   }
