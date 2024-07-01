@@ -55,3 +55,22 @@ case class SingleStatement(parsedPlan: LogicalPlan)
 case class CompoundBody(
     collection: Seq[CompoundPlanStatement],
     label: String) extends CompoundPlanStatement
+
+/**
+ * Logical operator for an error condition.
+ * @param sqlstate SQLSTATE.
+ * @param conditionName Name of the error condition.
+ */
+case class ErrorCondition(
+    sqlstate: String,
+    conditionName: String) extends CompoundPlanStatement
+
+/**
+ * Logical operator for an error condition.
+ * @param condition ErrorCondition variable for which the handler is built.
+ * @param handlerName Name of the error handler.
+ */
+case class ErrorHandler(
+    condition: ErrorCondition,
+    handlerName: String,
+    body: CompoundBody) extends CompoundPlanStatement
