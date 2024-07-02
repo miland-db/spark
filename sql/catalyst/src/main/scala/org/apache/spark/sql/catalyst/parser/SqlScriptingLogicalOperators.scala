@@ -67,10 +67,9 @@ case class ErrorCondition(
 
 /**
  * Logical operator for an error condition.
- * @param condition ErrorCondition variable for which the handler is built.
- * @param handlerName Name of the error handler.
+ * @param conditionName Name of the error condition variable for which the handler is built.
+ * @param body CompoundBody of the handler.
  */
 case class ErrorHandler(
-    condition: ErrorCondition,
-    handlerName: String,
+    conditionName: String,
     body: CompoundBody) extends CompoundPlanStatement

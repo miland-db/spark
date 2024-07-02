@@ -228,6 +228,17 @@ class SqlScriptingParserSuite extends SparkFunSuite with SQLHelper {
     assert(e.getMessage.contains("End label lbl can not exist without begin label."))
   }
 
+  test("custom handler") {
+    val batch =
+      """
+        |BEGIN
+        |  DECLARE CONTINUE HANDLER FOR pera BEGIN select 1; END;
+        |END""".stripMargin
+    val tree = parseScript(batch)
+    assert(tree.collection.length == 1)
+    assert(tree.collection.head.isInstanceOf[ErrorHandler])
+  }
+
   // Helper methods
   def cleanupStatementString(statementStr: String): String = {
     statementStr

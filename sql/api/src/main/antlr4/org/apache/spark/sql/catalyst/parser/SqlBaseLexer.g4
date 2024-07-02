@@ -573,6 +573,10 @@ IDENTIFIER
     | UNICODE_LETTER+ '://' (UNICODE_LETTER | DIGIT | '_' | '/' | '-' | '.' | '?' | '=' | '&' | '#' | '%')+
     ;
 
+SQLSTATE
+    : [0-9A-Z][0-9A-Z][0-9A-Z][0-9A-Z][0-9A-Z]
+    ;
+
 BACKQUOTED_IDENTIFIER
     : '`' ( ~'`' | '``' )* '`'
     ;
