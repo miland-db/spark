@@ -228,6 +228,7 @@ class SqlScriptingParserSuite extends SparkFunSuite with SQLHelper {
     assert(e.getMessage.contains("End label lbl can not exist without begin label."))
   }
 
+  // test not working
   test("custom handler") {
     val batch =
       """
