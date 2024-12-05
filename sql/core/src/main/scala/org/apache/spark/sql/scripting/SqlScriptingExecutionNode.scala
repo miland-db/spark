@@ -192,7 +192,13 @@ class CompoundBodyExec(
   private var scopeEntered = false
   private var scopeExited = false
 
-  // Enter scope represented by this compound statement.
+  /**
+   * Enter scope represented by this compound statement.
+   *
+   * This operation needs to be idempotent because it is called multiple times during
+   * iteration, but it should be executed only once when compound body that represent
+   * scope is encountered for the first time.
+   */
   protected def enterScope(): Unit = {
     // This check makes this operation idempotent.
     if (isScope && !scopeEntered) {
@@ -202,7 +208,11 @@ class CompoundBodyExec(
     }
   }
 
-  // Exit scope represented by this compound statement.
+  /**
+   * Exit scope represented by this compound statement.
+   *
+   * Even though this operation is called exactly once, we are making it idempotent.
+   */
   protected def exitScope(): Unit = {
     // This check makes this operation idempotent.
     if (isScope && !scopeExited) {
@@ -247,7 +257,8 @@ class CompoundBodyExec(
           case Some(body: NonLeafStatementExec) =>
             if (body.getTreeIterator.hasNext) {
               body match {
-                case exec: CompoundBodyExec => exec.enterScope()
+                // Scope will be entered only once per compound because enter scope is idempotent.
+                case compoundBodyExec: CompoundBodyExec => compoundBodyExec.enterScope()
                 case _ => // pass
               }
               body.getTreeIterator.next() match {
@@ -261,7 +272,8 @@ class CompoundBodyExec(
               }
             } else {
               body match {
-                case exec: CompoundBodyExec => exec.exitScope()
+                // Exit scope when there are no more statements to iterate through.
+                case compoundBodyExec: CompoundBodyExec => compoundBodyExec.exitScope()
                 case _ => // pass
               }
               curr = if (localIterator.hasNext) Some(localIterator.next()) else None
@@ -308,6 +320,9 @@ class CompoundBodyExec(
     if (!iterateStatement.hasBeenMatched) {
       // Stop the iteration.
       stopIteration = true
+
+      // Exit scope if iterate statement is encountered.
+      exitScope()
 
       // TODO: Variable cleanup (once we add SQL script execution logic).
       // TODO: Add interpreter tests as well.
