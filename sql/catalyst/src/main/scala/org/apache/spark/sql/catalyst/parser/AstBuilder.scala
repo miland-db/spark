@@ -196,13 +196,16 @@ class AstBuilder extends DataTypeAstBuilder
   override def visitSingleCompoundStatement(ctx: SingleCompoundStatementContext): CompoundBody = {
     val labelCtx = new SqlScriptingLabelContext()
     val labelText = labelCtx.enterLabeledScope(None, None)
-    val script = visitCompoundBodyImpl(
-      ctx.compoundBody(),
-      Some(labelText),
-      allowVarDeclare = true,
-      labelCtx,
-      isScope = true
-    )
+
+    val script = Option(ctx.compoundBody())
+      .map(visitCompoundBodyImpl(
+        _,
+        Some(labelText),
+        allowVarDeclare = true,
+        labelCtx,
+        isScope = true
+      )).getOrElse(CompoundBody(Seq.empty, Some(labelText), isScope = true))
+
     labelCtx.exitLabeledScope(None)
     script
   }
@@ -271,13 +274,14 @@ class AstBuilder extends DataTypeAstBuilder
       labelCtx: SqlScriptingLabelContext): CompoundBody = {
     val labelText =
       labelCtx.enterLabeledScope(Option(ctx.beginLabel()), Option(ctx.endLabel()))
-    val body = visitCompoundBodyImpl(
-      ctx.compoundBody(),
-      Some(labelText),
-      allowVarDeclare = true,
-      labelCtx,
-      isScope = true
-    )
+    val body = Option(ctx.compoundBody())
+      .map(visitCompoundBodyImpl(
+        _,
+        Some(labelText),
+        allowVarDeclare = true,
+        labelCtx,
+        isScope = true
+      )).getOrElse(CompoundBody(Seq.empty, Some(labelText), isScope = true))
     labelCtx.exitLabeledScope(Option(ctx.beginLabel()))
     body
   }
@@ -6119,6 +6123,14 @@ class AstBuilder extends DataTypeAstBuilder
       Project(projectList, left)
     }.getOrElse(Option(ctx.SET).map { _ =>
       visitOperatorPipeSet(ctx, left)
+    }.getOrElse(Option(ctx.DROP).map { _ =>
+      val ids: Seq[String] = visitIdentifierSeq(ctx.identifierSeq())
+      val projectList: Seq[NamedExpression] =
+        Seq(UnresolvedStarExceptOrReplace(
+          target = None, excepts = ids.map(s => Seq(s)), replacements = None))
+      Project(projectList, left)
+    }.getOrElse(Option(ctx.AS).map { _ =>
+      SubqueryAlias(ctx.errorCapturingIdentifier().getText, left)
     }.getOrElse(Option(ctx.whereClause).map { c =>
       if (ctx.windowClause() != null) {
         throw QueryParsingErrors.windowClauseInPipeOperatorWhereClauseNotAllowedError(ctx)
@@ -6145,7 +6157,7 @@ class AstBuilder extends DataTypeAstBuilder
       withQueryResultClauses(c, withSubqueryAlias(), forPipeOperators = true)
     }.getOrElse(
       visitOperatorPipeAggregate(ctx, left)
-    ))))))))))
+    ))))))))))))
   }
 
   private def visitOperatorPipeSet(
@@ -6232,7 +6244,8 @@ class AstBuilder extends DataTypeAstBuilder
                 Seq("GROUPING", "GROUPING_ID").foreach { name =>
                   if (f.nameParts.head.equalsIgnoreCase(name)) error(name)
                 }
-              case _: WindowSpec => error("window functions")
+              case _: WindowSpec => error("window functions; please update the query to move " +
+                "the window functions to a subsequent |> SELECT operator instead")
               case _ =>
             }
             e.children.foreach(visit)
