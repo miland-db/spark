@@ -70,6 +70,8 @@ case class SqlScriptingInterpreter(session: SparkSession) {
    * Transform [[CompoundBody]] into [[CompoundBodyExec]].
    * @param compoundBody
    *   CompoundBody to be transformed into CompoundBodyExec.
+   * @param args
+   *   A map of parameter names to SQL literal expressions.
    * @param isExitHandler
    *   Flag to indicate if the body is an exit handler body to add leave statement at the end.
    * @param exitHandlerLabel
@@ -130,20 +132,20 @@ case class SqlScriptingInterpreter(session: SparkSession) {
       })
     })
 
-    if (isExitHandler) {
-      // Create leave statement to exit the surrounding CompoundBody after handler execution.
-      val leave = new LeaveStatementExec(exitHandlerLabel)
-      val statements = compoundBody.collection.map(st =>
-        transformTreeIntoExecutable(st, args, context)) ++
-        dropVariables :+ leave
-
-      return new CompoundBodyExec(
-        statements,
-        compoundBody.label,
-        isScope = false,
-        context,
-        conditionHandlerMap)
-    }
+//    if (isExitHandler) {
+//      // Create leave statement to exit the surrounding CompoundBody after handler execution.
+//      val leave = new LeaveStatementExec(exitHandlerLabel)
+//      val statements = compoundBody.collection.map(st =>
+//        transformTreeIntoExecutable(st, args, context)) ++
+//        dropVariables :+ leave
+//
+//      return new CompoundBodyExec(
+//        statements,
+//        compoundBody.label,
+//        isScope = false,
+//        context,
+//        conditionHandlerMap)
+//    }
 
     new CompoundBodyExec(
       compoundBody.collection

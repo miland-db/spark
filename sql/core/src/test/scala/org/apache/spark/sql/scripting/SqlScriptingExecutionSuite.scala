@@ -17,8 +17,10 @@
 
 package org.apache.spark.sql.scripting
 
+import scala.collection.mutable.ListBuffer
+
 import org.apache.spark.SparkConf
-import org.apache.spark.sql.{DataFrame, QueryTest, Row}
+import org.apache.spark.sql.{QueryTest, Row}
 import org.apache.spark.sql.catalyst.expressions.Expression
 import org.apache.spark.sql.catalyst.plans.logical.CompoundBody
 import org.apache.spark.sql.exceptions.SqlScriptingException
@@ -44,7 +46,18 @@ class SqlScriptingExecutionSuite extends QueryTest with SharedSparkSession {
       args: Map[String, Expression] = Map.empty): Seq[Array[Row]] = {
     val compoundBody = spark.sessionState.sqlParser.parsePlan(sqlText).asInstanceOf[CompoundBody]
     val sse = new SqlScriptingExecution(compoundBody, spark, args)
-    sse.map { df => df.collect() }.toList
+
+    val result: ListBuffer[Array[Row]] = ListBuffer.empty
+
+
+    while (sse.hasNext) {
+      sse.withErrorHandling {
+        val df = sse.next()
+        result.addOne(df.collect())
+      }
+    }
+
+    result.toSeq
   }
 
   private def verifySqlScriptResult(sqlText: String, expected: Seq[Seq[Row]]): Unit = {
@@ -53,40 +66,6 @@ class SqlScriptingExecutionSuite extends QueryTest with SharedSparkSession {
     result.zip(expected).foreach {
       case (actualAnswer, expectedAnswer) =>
         assert(actualAnswer.sameElements(expectedAnswer))
-    }
-  }
-
-  private def runSqlScriptWithHandler(
-      sqlText: String,
-      args: Map[String, Expression] = Map.empty): Seq[Row] = {
-    val compoundBody = spark.sessionState.sqlParser.parsePlan(sqlText).asInstanceOf[CompoundBody]
-    val sse = new SqlScriptingExecution(compoundBody, spark, args)
-
-    var result: Option[Seq[Row]] = None
-    var df: Option[DataFrame] = None
-
-    if (sse.hasNext) {
-      df = Some(sse.next())
-    }
-
-    while (true) {
-      sse.withErrorHandling {
-        while (sse.hasNext) {
-          print("RESULT\n")
-          print(df.get.collect())
-          df = Some(sse.next())
-        }
-      }
-      result = Some(df.get.collect().toSeq)
-    }
-
-
-    if (result.isDefined) {
-      print(result.get)
-      print("\n")
-      result.get
-    } else {
-      Seq.empty[Row]
     }
   }
 
@@ -126,7 +105,7 @@ class SqlScriptingExecutionSuite extends QueryTest with SharedSparkSession {
         |  DECLARE CONTINUE HANDLER FOR zero_division
         |  BEGIN
         |    SELECT flag;
-        |    SET VAR flag = 5;
+        |    SET VAR flag = 1;
         |  END;
         |  SELECT 2;
         |  SELECT 3;
@@ -136,47 +115,45 @@ class SqlScriptingExecutionSuite extends QueryTest with SharedSparkSession {
         |END
         |""".stripMargin
     val expected = Seq(
-      Array.empty[Row], // declare var
-      Array(Row(2)),    // select
-      Array(Row(3)),    // select
-      Array(Row(-1)),   // select flag
-      Array.empty[Row], // set flag
-      Array(Row(4)),    // select
-      Array(Row(1))     // select
+      Seq(Row(2)),    // select
+      Seq(Row(3)),    // select
+      Seq(Row(-1)),   // select flag
+      Seq(Row(4)),    // select
+      Seq(Row(1))     // select
     )
-    runSqlScriptWithHandler(sqlScript)
+    verifySqlScriptResult(sqlScript, expected = expected)
   }
 
   test("handler - exit resolve in the same block") {
     val sqlScript =
       """
         |BEGIN
-        |  DECLARE flag INT = -1;
+        |  DECLARE OR REPLACE VARIABLE flag INT = -1;
         |  BEGIN
         |    DECLARE zero_division CONDITION FOR '22012';
         |    DECLARE EXIT HANDLER FOR zero_division
         |    BEGIN
         |      SELECT flag;
-        |      SET VAR flag = 3;
+        |      SET VAR flag = 1;
         |    END;
         |    SELECT 2;
         |    SELECT 3;
         |    SELECT 1/0;
         |    SELECT 4;
+        |    SELECT 5;
         |  END;
         |  SELECT flag;
         |END
         |""".stripMargin
     val expected = Seq(
-      Seq.empty[Row], // declare var
       Seq(Row(2)),    // select
       Seq(Row(3)),    // select
       Seq(Row(-1)),   // select flag
-      Seq.empty[Row], // set flag
+      Seq(Row(4)),    // select
+      Seq(Row(5)),    // select
       Seq(Row(1))     // select flag from the outer body
     )
-    runSqlScriptWithHandler(sqlScript)
-//    verifySqlScriptResult(sqlScript, expected)
+    verifySqlScriptResult(sqlScript, expected = expected)
   }
 
   test("handler - continue resolve in outer block") {
@@ -188,7 +165,7 @@ class SqlScriptingExecutionSuite extends QueryTest with SharedSparkSession {
         |  DECLARE CONTINUE HANDLER FOR zero_division
         |  BEGIN
         |    SELECT flag;
-        |    SET VAR flag = 10;
+        |    SET VAR flag = 1;
         |  END;
         |  SELECT 2;
         |  BEGIN
@@ -205,19 +182,16 @@ class SqlScriptingExecutionSuite extends QueryTest with SharedSparkSession {
         |END
         |""".stripMargin
     val expected = Seq(
-      Array.empty[Row], // declare var
-      Array(Row(2)),    // select
-      Array(Row(3)),    // select
-      Array(Row(4)),    // select
-      Array(Row(-1)),   // select flag
-      Array.empty[Row], // set flag
-      Array(Row(5)),    // select
-      Array(Row(6)),    // select
-      Array(Row(7)),    // select
-      Array(Row(1))     // select
+      Seq(Row(2)),    // select
+      Seq(Row(3)),    // select
+      Seq(Row(4)),    // select
+      Seq(Row(-1)),   // select flag
+      Seq(Row(5)),    // select
+      Seq(Row(6)),    // select
+      Seq(Row(7)),    // select
+      Seq(Row(1))     // select
     )
-    runSqlScriptWithHandler(sqlScript)
-//    verifySqlScriptResult(sqlScript, expected)
+    verifySqlScriptResult(sqlScript, expected = expected)
   }
 
   test("handler - continue resolve in the same block nested") {
@@ -233,7 +207,7 @@ class SqlScriptingExecutionSuite extends QueryTest with SharedSparkSession {
         |      DECLARE CONTINUE HANDLER FOR zero_division
         |      BEGIN
         |        SELECT flag;
-        |        SET VAR flag = 15;
+        |        SET VAR flag = 1;
         |      END;
         |      SELECT 4;
         |      SELECT 1/0;
@@ -246,37 +220,33 @@ class SqlScriptingExecutionSuite extends QueryTest with SharedSparkSession {
         |END
         |""".stripMargin
     val expected = Seq(
-      Array.empty[Row], // declare var
-      Array(Row(2)),    // select
-      Array(Row(3)),    // select
-      Array(Row(4)),    // select
-      Array(Row(-1)),   // select flag
-      Array.empty[Row], // set flag
-      Array(Row(5)),    // select
-      Array(Row(6)),    // select
-      Array(Row(7)),    // select
-      Array(Row(1))     // select
+      Seq(Row(2)),    // select
+      Seq(Row(3)),    // select
+      Seq(Row(4)),    // select
+      Seq(Row(-1)),   // select flag
+      Seq(Row(5)),    // select
+      Seq(Row(6)),    // select
+      Seq(Row(7)),    // select
+      Seq(Row(1))     // select
     )
-    runSqlScriptWithHandler(sqlScript)
-    //    verifySqlScriptResult(sqlScript, expected)
+    verifySqlScriptResult(sqlScript, expected = expected)
   }
-
 
   test("handler - exit resolve in outer block") {
     val sqlScript =
       """
         |BEGIN
         |  DECLARE flag INT = -1;
-        |  BEGIN
+        |  l1: BEGIN
         |    DECLARE zero_division CONDITION FOR '22012';
         |    DECLARE EXIT HANDLER FOR zero_division
         |    BEGIN
         |      SELECT flag;
-        |      SET VAR flag = 25;
+        |      SET VAR flag = 1;
         |    END;
         |    SELECT 2;
         |    SELECT 3;
-        |    BEGIN
+        |    l2: BEGIN
         |      SELECT 4;
         |      SELECT 1/0;
         |      SELECT 5;
@@ -287,18 +257,13 @@ class SqlScriptingExecutionSuite extends QueryTest with SharedSparkSession {
         |END
         |""".stripMargin
     val expected = Seq(
-      Array.empty[Row], // declare var
-      Array(Row(2)),    // select
-      Array(Row(3)),    // select
-      Array(Row(4)),    // select
-      Array(Row(-1)),   // select flag
-      Array.empty[Row], // set flag
-      // skip select 5
-      // skip select 6
-      Array(Row(1))     // select flag from the outer body
+      Seq(Row(2)),    // select
+      Seq(Row(3)),    // select
+      Seq(Row(4)),    // select
+      Seq(Row(-1)),   // select flag
+      Seq(Row(1))     // select flag from the outer body
     )
-    runSqlScriptWithHandler(sqlScript)
-    //    verifySqlScriptResult(sqlScript, expected)
+    verifySqlScriptResult(sqlScript, expected = expected)
   }
 
   // Tests

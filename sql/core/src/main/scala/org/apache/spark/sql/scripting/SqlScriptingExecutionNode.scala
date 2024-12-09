@@ -235,11 +235,14 @@ class CompoundBodyExec(
           case _ => throw SparkException.internalError(
             "Unknown statement type encountered during SQL script interpretation.")
         }
-        !stopIteration && (localIterator.hasNext || childHasNext)
+        val res = !stopIteration && (localIterator.hasNext || childHasNext)
+        if (!res) exitScope()
+        res
       }
 
       @scala.annotation.tailrec
       override def next(): CompoundStatementExec = {
+        enterScope()
         curr match {
           case None => throw SparkException.internalError(
             "No more elements to iterate through in the current SQL compound statement.")

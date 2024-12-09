@@ -65,7 +65,9 @@ class SqlScriptingExecutionContext {
  * @param executionPlan CompoundBody which need to be executed.
  */
 class SqlScriptingExecutionFrame(
-    executionPlan: Iterator[CompoundStatementExec]) extends Iterator[CompoundStatementExec] {
+    executionPlan: Iterator[CompoundStatementExec],
+    val isExitHandler: Boolean = false,
+    val scopeToExit: Option[String] = None) extends Iterator[CompoundStatementExec] {
 
   // List of scopes that are currently active.
   private val scopes: ListBuffer[SqlScriptingExecutionScope] = ListBuffer.empty
@@ -99,7 +101,7 @@ class SqlScriptingExecutionFrame(
     if (scopes.isEmpty) {
       throw SparkException.internalError(s"Cannot exit scope: no scopes to exit.")
     }
-
+    print("Exiting: " + label + "\n")
     // Remove all scopes until the one with the given label.
     while (scopes.nonEmpty && scopes.last.label != label) {
       scopes.remove(scopes.length - 1)
@@ -107,6 +109,7 @@ class SqlScriptingExecutionFrame(
 
     if (scopes.nonEmpty) {
       scopes.remove(scopes.length - 1)
+      print("Exiting successful\n")
     }
   }
 }
