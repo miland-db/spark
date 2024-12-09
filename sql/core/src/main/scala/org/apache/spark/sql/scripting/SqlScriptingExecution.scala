@@ -62,17 +62,11 @@ class SqlScriptingExecution(
 
   /** Helper method to iterate get next statements from the first available frame. */
   private def getNextStatement: Option[CompoundStatementExec] = {
-    print("Frames size: " + context.frames.length + "\n")
-    print("")
     while (context.frames.nonEmpty && !context.frames.last.hasNext) {
       val lastFrame = context.frames.last
       context.frames.remove(context.frames.size - 1)
       if (lastFrame.isExitHandler) {
-        print("last Frame is exit handler\n")
-        print(lastFrame.scopeToExit.get)
-        print("\n")
         if (context.frames.nonEmpty) {
-          print("exiting scope\n")
           context.exitScope(lastFrame.scopeToExit.get)
         }
       }
@@ -114,7 +108,6 @@ class SqlScriptingExecution(
   }
 
   private def handleException(e: SparkThrowable): Unit = {
-    print("error -> " + e.getSqlState + " -> " + e.getCondition + "\n")
     context.findHandler(e.getSqlState) match {
       case Some(handler) =>
         context.frames.addOne(

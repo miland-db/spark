@@ -101,7 +101,6 @@ class SqlScriptingExecutionFrame(
     if (scopes.isEmpty) {
       throw SparkException.internalError(s"Cannot exit scope: no scopes to exit.")
     }
-    print("Exiting: " + label + "\n")
     // Remove all scopes until the one with the given label.
     while (scopes.nonEmpty && scopes.last.label != label) {
       scopes.remove(scopes.length - 1)
@@ -109,7 +108,6 @@ class SqlScriptingExecutionFrame(
 
     if (scopes.nonEmpty) {
       scopes.remove(scopes.length - 1)
-      print("Exiting successful\n")
     }
   }
 }
