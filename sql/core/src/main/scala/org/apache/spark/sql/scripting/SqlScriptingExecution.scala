@@ -48,7 +48,13 @@ class SqlScriptingExecution(
   private var current: Option[DataFrame] = None
 
   override def hasNext: Boolean = {
-    current = getNextResult
+    try {
+      current = getNextResult
+    } catch {
+      case e: SparkThrowable =>
+        handleException(e)
+        hasNext
+    }
     current.isDefined
   }
 
@@ -63,13 +69,7 @@ class SqlScriptingExecution(
   /** Helper method to iterate get next statements from the first available frame. */
   private def getNextStatement: Option[CompoundStatementExec] = {
     while (context.frames.nonEmpty && !context.frames.last.hasNext) {
-      val lastFrame = context.frames.last
       context.frames.remove(context.frames.size - 1)
-      if (lastFrame.isExitHandler) {
-        if (context.frames.nonEmpty) {
-          context.exitScope(lastFrame.scopeToExit.get)
-        }
-      }
     }
     if (context.frames.nonEmpty) {
       return Some(context.frames.last.next())
@@ -84,12 +84,10 @@ class SqlScriptingExecution(
     while (currentStatement.isDefined) {
       currentStatement match {
         case Some(stmt: SingleStatementExec) if !stmt.isExecuted =>
-          withErrorHandling {
-            val df = stmt.buildDataFrame(session)
-            df.logicalPlan match {
-              case _: CommandResult => // pass
-              case _ => return Some(df) // If the statement is a result, return it to the caller.
-            }
+          val df = stmt.buildDataFrame(session)
+          df.logicalPlan match {
+            case _: CommandResult => // pass
+            case _ => return Some(df) // If the statement is a result, return it to the caller.
           }
         case _ => // pass
       }

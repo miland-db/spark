@@ -52,12 +52,12 @@ class SqlScriptingExecutionSuite extends QueryTest with SharedSparkSession {
 
     while (executionInProgress) {
       executionInProgress = false
-      sse.withErrorHandling {
-        while (sse.hasNext) {
-          val df = sse.next()
+      while (sse.hasNext) {
+        val df = sse.next()
+        sse.withErrorHandling {
           result.addOne(df.collect())
-          executionInProgress = true
         }
+        executionInProgress = true
       }
     }
 

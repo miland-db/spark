@@ -236,9 +236,7 @@ class CompoundBodyExec(
             "Unknown statement type encountered during SQL script interpretation.")
         }
         val res = !stopIteration && (localIterator.hasNext || childHasNext)
-        if (!res) {
-          exitScope()
-        }
+        exitScope()
         res
       }
 
@@ -261,11 +259,11 @@ class CompoundBodyExec(
             statement
           case Some(body: NonLeafStatementExec) =>
             if (body.getTreeIterator.hasNext) {
-              body match {
-                // Scope will be entered only once per compound because enter scope is idempotent.
-                case compoundBodyExec: CompoundBodyExec => compoundBodyExec.enterScope()
-                case _ => // pass
-              }
+//              body match {
+//                // Scope will be entered only once per compound because enter scope is idempotent.
+//                case compoundBodyExec: CompoundBodyExec => compoundBodyExec.enterScope()
+//                case _ => // pass
+//              }
               body.getTreeIterator.next() match {
                 case leaveStatement: LeaveStatementExec =>
                   handleLeaveStatement(leaveStatement)
@@ -276,11 +274,11 @@ class CompoundBodyExec(
                 case other => other
               }
             } else {
-              body match {
-                // Exit scope when there are no more statements to iterate through.
-                case compoundBodyExec: CompoundBodyExec => compoundBodyExec.exitScope()
-                case _ => // pass
-              }
+//              body match {
+//                // Exit scope when there are no more statements to iterate through.
+//                case compoundBodyExec: CompoundBodyExec => compoundBodyExec.exitScope()
+//                case _ => // pass
+//              }
               curr = if (localIterator.hasNext) Some(localIterator.next()) else None
               next()
             }

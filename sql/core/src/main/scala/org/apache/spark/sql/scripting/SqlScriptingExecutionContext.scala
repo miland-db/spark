@@ -39,13 +39,6 @@ class SqlScriptingExecutionContext {
     if (frames.isEmpty) {
       throw SparkException.internalError(s"Cannot exit scope: no frames.")
     }
-    while (frames.nonEmpty) {
-      if (frames.last.exitScope(label)) {
-        if (!frames.last.hasNext) {
-
-        }
-      }
-    }
     frames.reverseIterator.foreach { frame =>
       if (frame.exitScope(label)) {
         return
@@ -138,5 +131,12 @@ class SqlScriptingExecutionScope(
 
   def findHandler(condition: String): Option[ErrorHandlerExec] = {
     conditionHandlerMap.get(condition)
+      .orElse{
+        conditionHandlerMap.get("NOT FOUND") match {
+          // If NOT FOUND handler is defined, use it only for errors with class '02'.
+          case Some(handler) if condition.startsWith("02") => Some(handler)
+          case _ => None
+        }}
+      .orElse{conditionHandlerMap.get("SQLEXCEPTION")}
   }
 }
