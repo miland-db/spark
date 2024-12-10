@@ -25,8 +25,8 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 import org.apache.spark.sql.catalyst.analysis.{NameParameterizedQuery, UnresolvedAttribute, UnresolvedIdentifier}
 import org.apache.spark.sql.catalyst.expressions.{Alias, CreateArray, CreateMap, CreateNamedStruct, Expression, Literal}
-import org.apache.spark.sql.catalyst.plans.logical.HandlerType.HandlerType
 import org.apache.spark.sql.catalyst.plans.logical.{CreateVariable, DefaultValueExpression, DropVariable, LogicalPlan, OneRowRelation, Project, SetVariable}
+import org.apache.spark.sql.catalyst.plans.logical.HandlerType.HandlerType
 import org.apache.spark.sql.catalyst.trees.{Origin, WithOrigin}
 import org.apache.spark.sql.errors.SqlScriptingErrors
 import org.apache.spark.sql.types.BooleanType
@@ -215,7 +215,7 @@ class CompoundBodyExec(
    */
   protected def exitScope(): Unit = {
     // This check makes this operation idempotent.
-    if (isScope && !scopeExited) {
+    if (isScope && scopeEntered && !scopeExited) {
       scopeExited = true
       scopeEntered = false
       context.exitScope(label.get)
@@ -236,7 +236,9 @@ class CompoundBodyExec(
             "Unknown statement type encountered during SQL script interpretation.")
         }
         val res = !stopIteration && (localIterator.hasNext || childHasNext)
-        if (!res) exitScope()
+        if (!res) {
+          exitScope()
+        }
         res
       }
 

@@ -456,12 +456,14 @@ class SparkSession private(
       sse.withErrorHandling {
         while (sse.hasNext) {
           df = sse.next()
-          executionInProgress = true
           df.write.format("noop").mode("overwrite").save()
+          executionInProgress = true
         }
 
         result = if (df != null) {
-          Some(df.collect().toSeq)
+          val tmp = Some(df.collect().toSeq)
+          executionInProgress = false
+          tmp
         } else {
           None
         }

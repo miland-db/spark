@@ -79,32 +79,23 @@ class SqlScriptingExecution(
 
   /** Helper method to iterate through statements until next result statement is encountered. */
   private def getNextResult: Option[DataFrame] = {
-    try {
-      var currentStatement = getNextStatement
-      // While we don't have a result statement, execute the statements.
-      while (currentStatement.isDefined) {
-        currentStatement match {
-          case Some(stmt: SingleStatementExec) if !stmt.isExecuted =>
-            withErrorHandling {
-              val df = stmt.buildDataFrame(session)
-              df.logicalPlan match {
-                case _: CommandResult => // pass
-                case _ => return Some(df) // If the statement is a result, return it to the caller.
-              }
+    var currentStatement = getNextStatement
+    // While we don't have a result statement, execute the statements.
+    while (currentStatement.isDefined) {
+      currentStatement match {
+        case Some(stmt: SingleStatementExec) if !stmt.isExecuted =>
+          withErrorHandling {
+            val df = stmt.buildDataFrame(session)
+            df.logicalPlan match {
+              case _: CommandResult => // pass
+              case _ => return Some(df) // If the statement is a result, return it to the caller.
             }
-          case _ => // pass
-        }
-        currentStatement = getNextStatement
+          }
+        case _ => // pass
       }
-      None
-    } catch {
-      case e: SparkThrowable =>
-        handleException(e) // Try to find a handler for the exception.
-        getNextResult
-      case exception: Exception =>
-        // Throw the exception as is.
-        throw exception
+      currentStatement = getNextStatement
     }
+    None
   }
 
   private def handleException(e: SparkThrowable): Unit = {

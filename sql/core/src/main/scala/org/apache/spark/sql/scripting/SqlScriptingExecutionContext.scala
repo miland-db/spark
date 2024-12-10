@@ -39,7 +39,18 @@ class SqlScriptingExecutionContext {
     if (frames.isEmpty) {
       throw SparkException.internalError(s"Cannot exit scope: no frames.")
     }
-    frames.last.exitScope(label)
+    while (frames.nonEmpty) {
+      if (frames.last.exitScope(label)) {
+        if (!frames.last.hasNext) {
+
+        }
+      }
+    }
+    frames.reverseIterator.foreach { frame =>
+      if (frame.exitScope(label)) {
+        return
+      }
+    }
   }
 
   def findHandler(condition: String): Option[ErrorHandlerExec] = {
@@ -97,10 +108,11 @@ class SqlScriptingExecutionFrame(
     scopes.addOne(new SqlScriptingExecutionScope(label, conditionHandlerMap))
   }
 
-  def exitScope(label: String): Unit = {
+  def exitScope(label: String): Boolean = {
     if (scopes.isEmpty) {
       throw SparkException.internalError(s"Cannot exit scope: no scopes to exit.")
     }
+
     // Remove all scopes until the one with the given label.
     while (scopes.nonEmpty && scopes.last.label != label) {
       scopes.remove(scopes.length - 1)
@@ -108,7 +120,9 @@ class SqlScriptingExecutionFrame(
 
     if (scopes.nonEmpty) {
       scopes.remove(scopes.length - 1)
+      return true;
     }
+    false
   }
 }
 

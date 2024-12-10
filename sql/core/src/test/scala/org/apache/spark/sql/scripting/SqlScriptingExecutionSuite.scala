@@ -48,12 +48,16 @@ class SqlScriptingExecutionSuite extends QueryTest with SharedSparkSession {
     val sse = new SqlScriptingExecution(compoundBody, spark, args)
 
     val result: ListBuffer[Array[Row]] = ListBuffer.empty
+    var executionInProgress: Boolean = true
 
-
-    while (sse.hasNext) {
+    while (executionInProgress) {
+      executionInProgress = false
       sse.withErrorHandling {
-        val df = sse.next()
-        result.addOne(df.collect())
+        while (sse.hasNext) {
+          val df = sse.next()
+          result.addOne(df.collect())
+          executionInProgress = true
+        }
       }
     }
 
@@ -129,7 +133,7 @@ class SqlScriptingExecutionSuite extends QueryTest with SharedSparkSession {
       """
         |BEGIN
         |  DECLARE OR REPLACE VARIABLE flag INT = -1;
-        |  BEGIN
+        |  scope_to_exit: BEGIN
         |    DECLARE zero_division CONDITION FOR '22012';
         |    DECLARE EXIT HANDLER FOR zero_division
         |    BEGIN
